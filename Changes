@@ -1,5 +1,13 @@
 Revision history for Perl extension HTTP::Parser.
 
+0.05  2009-11-13
+  - two fixes by David Cannings <david@edeca.net>
+  - when parsing responses with no Content-Length header, return a different
+     code to the caller so it can decide whether to keep adding data or not
+     (a slightly more elegant fix to rt.cpan.org #34021)
+  - parse the HTTP response message correctly, it can contain multiple words
+     (rt.cpan.org #34019)
+
 0.04  2007-11-10
   - when parsing chunks, only remove current chunk from data buffer; don't
      clear it (rt.cpan.org #30005, patch from David Cannings)

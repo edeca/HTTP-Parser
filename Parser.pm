@@ -12,6 +12,8 @@ HTTP::Parser - parse HTTP/1.1 request into HTTP::Request/Response object
 
  if(0 == $status) {
    print "request: ".$parser->request()->as_string();  # HTTP::Request
+ } elsif(-3 == $status) {
+   print "no content length header!\n";
  } elsif(-2 == $status) {
    print "need a line of data\n";
  } elsif(-1 == $status) {
@@ -33,7 +35,7 @@ use strict;
 
 package HTTP::Parser;
 
-our $VERSION = '0.04';
+our $VERSION = '0.05';
 
 use HTTP::Request;
 use HTTP::Response;
@@ -97,6 +99,21 @@ if not finished but not sure how many bytes remain
 =item -2
 
 if waiting for a line (like 0 with a hint)
+
+=item -3
+
+if there was no content-length header, so we can't tell whether we are 
+waiting for more data or not.
+
+If you are reading from a TCP stream, you can keep adding data until 
+the connection closes gracefully (the HTTP RFC allows this).
+
+If you are reading from a file, you should keep adding until you have 
+all the data.  
+
+Once you have added all data, you may call C<object>.  if you are not 
+sure whether you have all the data, the HTTP::Response object might be 
+incomplete.
 
 =item count
 
@@ -231,7 +248,9 @@ sub _parse_header {
     if ($request =~ /^HTTP\/(\d+)\.(\d+)/i) {
       die 'HTTP responses not allowed' unless $self->{response};
       ($major,$minor) = ($1,$2);
-      my (undef, $state, $msg) = split / /,$request;
+      $request =~ /^HTTP\/\d+\.\d+ (\d+) (.+)$/;
+      my $state = $1;
+      my $msg = $2;
       $obj = $self->{obj} = HTTP::Response->new($state, $msg);
 
     # perhaps a request?
@@ -277,6 +296,32 @@ sub _parse_header {
     }
   }
 
+  # section 14.13 of the spec says an HTTP response "SHOULD" return a 
+  # content-length header unless there are reasons not to
+  # however, the same RFC does allow "end of connection" as a valid marker
+  # of the end of data and means the server does not need to set a content
+  # length header.  the only status codes that "MAY NOT" return data are
+  # 1xx, 204 and 304.
+  # therefore if there is no content length header, return -3 to the caller
+  # so they can decide whether to keep feeding data.  if using HTTP::Parser
+  # with data from tcp, you could assume that the end of a connection is
+  # the end of the response data
+  if($self->{response}) {
+    if (!defined $obj->header('content_length') &&
+     $self->object->code ne '204' &&
+     $self->object->code ne '304' &&
+     $self->object->code !~ /1\d\d/) {
+
+      # Assume headers are finished and we are moving into body mode
+      $self->{state} = 'body';
+      $self->{no_content_length} = 1;
+
+      # Parse any data that might be left
+      return $self->_parse_body() if length $self->data;
+      return -3;
+    }
+  }
+
   # else we have no content so return success
   return 0;
 }
@@ -290,6 +335,16 @@ sub _parse_header {
 sub _parse_body {
   my $self = shift;
   my $length = $self->{obj}->header('content_length');
+
+  # if the server didn't include a content length header, inform the
+  # caller.  they may choose to ignore this response or wait for
+  # the end of connection (which is a valid reason to assume that
+  # the response is finished)
+  if($self->{no_content_length}) {
+    $self->{obj}->content($self->{data});
+    return -3;
+  }
+
   if(length $self->{data} >= $length) {
     $self->{obj}->content(substr($self->{data},0,$length,''));
     return 0;
@@ -323,7 +378,7 @@ CHUNK:
       }
 
     } else {
-      die "expected chunked enoding, got '".substr($self->{data},0,40)."...'"
+      die "expected chunked encoding, got '".substr($self->{data},0,40)."...'"
        if $self->{data} =~ /\x0d?\x0a/;
       return -2;  # waiting for a line with chunk information
     }
@@ -354,6 +409,7 @@ CHUNK:
 =head1 AUTHOR
 
 David Robins E<lt>dbrobins@davidrobins.netE<gt>
+Fixes for 0.05 by David Cannings E<lt>david@edeca.netE<gt>
 
 =head1 SEE ALSO
 
