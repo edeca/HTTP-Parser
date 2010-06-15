@@ -9,6 +9,7 @@ WriteMakefile(
                          'URI'            => 0,
                          'HTTP::Request'  => 0,
                          'HTTP::Response' => 0,
+                         'Test::More'     => 0,
                        },
     'LICENSE'   => 'perl',
     ($] >= 5.005 ?    ## Add these new keywords supported since 5.005
