@@ -9,15 +9,18 @@ was originally written to be part of a simple Event.pm-based HTTP server.
 
 e.g.
 
+ use HTTP::Parser;
+
  my $parser = HTTP::Parser->new();
  my @lines = ('GET / HTTP/1.1','Host: localhost','Connection: close','','');
 
  my $result;
- while my $line(@lines) {
+ foreach my $line (@lines) {
    $result = $parser->add("$line\x0d\x0a");
    print "passing '$line' got '$result'\n";
  }
- print $result->as_string();
+ print $parser->object->as_string();
+
 
 gives:
 
