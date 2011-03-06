@@ -1,5 +1,8 @@
 Revision history for Perl extension HTTP::Parser.
 
+0.06  2011-03-06
+  - fix by frodwith for rt.cpan.org #66298 (path string parsing)
+
 0.05  2009-11-13
   - two fixes by David Cannings <david@edeca.net>
   - when parsing responses with no Content-Length header, return a different

@@ -35,7 +35,7 @@ use strict;
 
 package HTTP::Parser;
 
-our $VERSION = '0.05';
+our $VERSION = '0.06';
 
 use HTTP::Request;
 use HTTP::Response;
@@ -260,6 +260,12 @@ sub _parse_header {
        unless $http and $http =~ /^HTTP\/(\d+)\.(\d+)$/i;
       ($major,$minor) = ($1,$2);
       die 'HTTP requests not allowed' unless $self->{request};
+
+      # If the Request-URI is an abs_path, we need to tell URI that we don't
+      # know the scheme, otherwise it will misinterpret paths that start with
+      # // as being scheme-relative uris, and will interpret the first
+      # component after // as the host (see rfc 2616)
+      $uri = "//$uri" if $uri =~ m(^/);
       $obj = $self->{obj} = HTTP::Request->new($method, URI->new($uri));
     }
 

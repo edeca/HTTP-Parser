@@ -4,7 +4,7 @@
 #########################
 
 use strict;
-use Test::More tests => 21;
+use Test::More tests => 22;
 
 # <1>
 BEGIN { use_ok('HTTP::Parser') };
@@ -77,3 +77,7 @@ if($result) {
   is($res->content, "Some content!\x0d\x0a", 'content is correct');
 }
 
+# <1>
+$parser = HTTP::Parser->new(request => 1);
+$parser->add("GET //foo///bar/baz HTTP/1.1\x0d\x0a\x0d\x0a");
+is $parser->request->uri->path, '//foo///bar/baz';
